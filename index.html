@@ -39,7 +39,7 @@ summary{cursor:pointer;color:var(--gold);margin:10px 0}
 .locations h4{margin:0 0 8px;color:var(--gold)}
 .locations ul{margin:0;padding-left:18px;line-height:1.65}
 .locations code{white-space:nowrap}
-#ruby-rates{grid-column:1/-1}#chefes .table-scroll{margin:16px 0 22px}#chefes caption{font-weight:700;color:var(--gold)}#chefes th,#chefes td{text-align:left}#chefes td:last-child{white-space:normal;min-width:135px}</style></head><body><main class="wrap"><header><div><h1>GodsWar Companion</h1><p>Atlantis · YOKAI · Free-to-Play</p></div><nav aria-label="Seções do Companion"><a href="#ajuda">Rotas</a><a href="#lost-book">Lost Book</a><a href="#forja">Forja</a><a href="#atributos">Atributos</a><a href="#class-suit">Class Suit</a><a href="#holy-suit">Holy Suit</a><a href="#chefes">Chefes</a></nav></header><section id="ajuda" class="panel" aria-labelledby="ajuda-titulo"><h2 id="ajuda-titulo" class="guide-title">Rotas de eventos</h2><p class="note">Clique no passo atual para marcar sua posição na rota.</p><div class="routes"></div></section>
+#ruby-rates{grid-column:1/-1}#chefes .table-scroll{margin:16px 0 22px}#chefes caption{font-weight:700;color:var(--gold)}#chefes th,#chefes td{text-align:left}#chefes td:last-child{white-space:normal;min-width:135px}#next-boss{min-height:0;margin:16px 0}#next-boss-time{color:var(--gold);font-weight:650}</style></head><body><main class="wrap"><header><div><h1>GodsWar Companion</h1><p>Atlantis · YOKAI · Free-to-Play</p></div><nav aria-label="Seções do Companion"><a href="#ajuda">Rotas</a><a href="#lost-book">Lost Book</a><a href="#forja">Forja</a><a href="#atributos">Atributos</a><a href="#class-suit">Class Suit</a><a href="#holy-suit">Holy Suit</a><a href="#chefes">Chefes</a></nav></header><section id="ajuda" class="panel" aria-labelledby="ajuda-titulo"><h2 id="ajuda-titulo" class="guide-title">Rotas de eventos</h2><p class="note">Clique no passo atual para marcar sua posição na rota.</p><div class="routes"></div></section>
 <section id="lost-book" class="panel">
   <h2 class="guide-title">Lost Book</h2>
   <ol class="guide-list">
@@ -162,7 +162,13 @@ summary{cursor:pointer;color:var(--gold);margin:10px 0}
   <h2 class="guide-title">Chefes e Elites</h2>
   <p>Horários fixos em <strong>Brasília (UTC−3)</strong>, seis horas atrás do servidor. Os intervalos de reaparecimento mantêm a duração indicada na wiki.</p>
   <p class="note">[E] Elite · [Quest Boss] Chefe de missão · [Boss] Chefe · [World Boss] Chefe mundial</p>
-  <details open><summary>Sparta</summary>
+  <div class="result" id="next-boss" hidden>
+    <h3>Próximo chefe mundial</h3>
+    <p id="next-boss-time"></p>
+    <ul id="next-boss-list"></ul>
+    <p class="note">Horários fixos da tabela, com base no relógio do dispositivo em Brasília.</p>
+  </div>
+  <details><summary>Sparta</summary>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Sparta">
     <table><caption>Sparta</caption><thead><tr><th scope="col">Inimigo</th><th scope="col">Nível</th><th scope="col">Coordenadas</th><th scope="col">Reaparecimento</th></tr></thead><tbody>
       <tr><th scope="row">[E] Ivan the Hunter</th><td>3</td><td>191, -2</td><td>A cada 90 min</td></tr>
@@ -233,7 +239,7 @@ summary{cursor:pointer;color:var(--gold);margin:10px 0}
     </tbody></table>
     </div>
   </details>
-  <details open><summary>Atenas</summary>
+  <details><summary>Atenas</summary>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Athens">
     <table><caption>Athens</caption><thead><tr><th scope="col">Inimigo</th><th scope="col">Nível</th><th scope="col">Coordenadas</th><th scope="col">Reaparecimento</th></tr></thead><tbody>
       <tr><th scope="row">[E] Strong York</th><td>3</td><td>191, -2</td><td>A cada 90 min</td></tr>
@@ -304,7 +310,7 @@ summary{cursor:pointer;color:var(--gold);margin:10px 0}
     </tbody></table>
     </div>
   </details>
-  <details open><summary>Neutros</summary>
+  <details><summary>Neutros</summary>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Isthmus of Corinth">
     <table><caption>Isthmus of Corinth</caption><thead><tr><th scope="col">Inimigo</th><th scope="col">Nível</th><th scope="col">Coordenadas</th><th scope="col">Reaparecimento</th></tr></thead><tbody>
       <tr><th scope="row">[E] Aldau</th><td>90</td><td>-190, 36</td><td>A cada 60 min</td></tr>
@@ -501,6 +507,60 @@ for (const field of [rubyBase, crystalBonus, ...rubyModes]) {
   field.addEventListener('change', updateRubyChance);
 }
 updateRubyChance();
+</script><script>
+{
+  const card = document.getElementById('next-boss');
+  const list = document.getElementById('next-boss-list');
+  const timeLabel = document.getElementById('next-boss-time');
+  const clock = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  });
+  const toMinutes = time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const entries = [];
+
+  for (const row of document.querySelectorAll('#chefes tbody tr')) {
+    const [name, , coordinates, schedule] = Array.from(row.cells, cell => cell.textContent.trim());
+    if (!name.startsWith('[World Boss] ') || !/^\d{2}:\d{2}( · \d{2}:\d{2})*$/.test(schedule)) continue;
+    const map = row.closest('table').caption.textContent.trim();
+    for (const time of schedule.split(' · ')) {
+      entries.push({ name: name.slice('[World Boss] '.length), map, coordinates, time, minute: toMinutes(time) });
+    }
+  }
+
+  let lastMinute = -1;
+  function updateNextBoss() {
+    const now = toMinutes(clock.format(new Date()));
+    if (now === lastMinute) return;
+    lastMinute = now;
+    let nextIn = Infinity;
+    let upcoming = [];
+    for (const entry of entries) {
+      const delay = (entry.minute - now + 1440) % 1440;
+      if (delay < nextIn) {
+        nextIn = delay;
+        upcoming = [entry];
+      } else if (delay === nextIn) {
+        upcoming.push(entry);
+      }
+    }
+    if (!upcoming.length) return;
+
+    const countdown = nextIn === 0 ? 'previsto para agora' : `em ${Math.floor(nextIn / 60)} h ${nextIn % 60} min`;
+    const day = now + nextIn >= 1440 ? ' de amanhã' : '';
+    timeLabel.textContent = `${upcoming[0].time}${day} · ${countdown}`;
+    list.replaceChildren(...upcoming.map(entry => {
+      const item = document.createElement('li');
+      item.textContent = `${entry.name} · ${entry.map} (${entry.coordinates})`;
+      return item;
+    }));
+    card.hidden = false;
+  }
+
+  if (entries.length) {
+    updateNextBoss();
+    setInterval(updateNextBoss, 1000);
+  }
+}
 </script></body></html>
 
 
